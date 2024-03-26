@@ -56,5 +56,6 @@ The code is in the TransactionProcessorSample.java file. I used the sample code 
   To run the project, you can use terminal and specify all paths of input and output files.
 
   Example:
-  java TransactionProcessorSample.java <users-imput.csv> <transactions-input.csv> <bins-input.csv> <balances-output.csv> <events-output.csv>
+  
+  java TransactionProcessorSample.java <users-input.csv> <transactions-input.csv> <bins-input.csv> <balances-output.csv> <events-output.csv>
 
