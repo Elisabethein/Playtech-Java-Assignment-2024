@@ -8,7 +8,6 @@ import java.math.BigInteger;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.util.*;
 
 
@@ -20,6 +19,7 @@ public class TransactionProcessorSample {
         List<User> users = TransactionProcessorSample.readUsers(Paths.get(args[0]));
         List<Transaction> transactions = TransactionProcessorSample.readTransactions(Paths.get(args[1]));
         List<BinMapping> binMappings = TransactionProcessorSample.readBinMappings(Paths.get(args[2]));
+        // Read country codes from file
         Map<String, String> countryCodes = TransactionProcessorSample.readCountryCodes(Path.of("country_codes.txt"));
 
         List<Event> events = TransactionProcessorSample.processTransactions(users, transactions, binMappings, countryCodes);
@@ -28,6 +28,7 @@ public class TransactionProcessorSample {
         TransactionProcessorSample.writeEvents(Paths.get(args[4]), events);
     }
 
+    // Read country codes from text file
     private static Map<String, String> readCountryCodes(final Path filePath) {
         Map<String, String> countryCodes = new HashMap<>();
         try (BufferedReader br = new BufferedReader(new FileReader(filePath.toString()))) {
@@ -42,6 +43,7 @@ public class TransactionProcessorSample {
         return countryCodes;
     }
 
+    // Read users from csv file
     private static List<User> readUsers(final Path filePath) {
         List<User> users = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(filePath.toString()))) {
@@ -58,6 +60,7 @@ public class TransactionProcessorSample {
         return users;
     }
 
+    // Read transactions from csv file
     private static List<Transaction> readTransactions(final Path filePath) {
         List<Transaction> transactions = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(filePath.toString()))) {
@@ -73,6 +76,7 @@ public class TransactionProcessorSample {
         return transactions;
     }
 
+    // Read bin mappings from csv file
     private static List<BinMapping> readBinMappings(final Path filePath) {
         List<BinMapping> binMappings = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(filePath.toString()))) {
@@ -88,6 +92,15 @@ public class TransactionProcessorSample {
         return binMappings;
     }
 
+    /**
+     * The first validation method to whether the user exist and is not frozen and whether the transaction is unique.
+     * Uses other validation methods and creates lists for events, approved transactions and processed transactions.
+     * @param users - list of users
+     * @param transactions - list of transactions
+     * @param binMappings - list of bin mappings
+     * @param countryCodes - map of country codes
+     * @return list of events
+     */
     private static List<Event> processTransactions(final List<User> users, final List<Transaction> transactions, final List<BinMapping> binMappings, final Map<String, String> countryCodes) {
         List<Event> events = new ArrayList<>();
         List<Transaction> approvedTransactions = new ArrayList<>();
@@ -123,53 +136,13 @@ public class TransactionProcessorSample {
         return events;
     }
 
-    private static void transferValidation(List<Event> events, List<Transaction> processedTransactions, Transaction transaction, User user, List<Transaction> approvedTransactions) {
-        String iban = transaction.accountNumber;
-        if (iban.length() > 34) {
-            events.add(new Event(transaction.transactionId, Event.STATUS_DECLINED, "Invalid iban " + transaction.accountNumber));
-            processedTransactions.add(transaction);
-            return;
-        }
-        boolean isValid = isValid(iban);
-        if (!isValid) {
-            events.add(new Event(transaction.transactionId, Event.STATUS_DECLINED, "Invalid iban " + transaction.accountNumber));
-            processedTransactions.add(transaction);
-            return;
-        }
-        // - Confirm that the country of the card or account used for the transaction matches the user's country
-        if (!user.country.equals(iban.substring(0, 2))) {
-            events.add(new Event(transaction.transactionId, Event.STATUS_DECLINED, "Country of the account used for the transaction doesn't match the user's country, expected " + user.country));
-            processedTransactions.add(transaction);
-            return;
-        }
-        // - Users cannot share iban/card; payment account used by one user can no longer be used by another
-        validateAccountIsUsedByOneUser(events, approvedTransactions, processedTransactions, transaction, user);
-    }
 
-    private static void cardValidation(List<BinMapping> binMappings, Map<String, String> countryCodes, Transaction transaction, List<Event> events, List<Transaction> processedTransactions, User user, List<Transaction> approvedTransactions) {
-        String accountNumber = transaction.accountNumber;
-        long number = Long.parseLong(accountNumber.substring(0, 10));
-        for (BinMapping binMapping : binMappings) {
-            if (number >= binMapping.rangeFrom && number <= binMapping.rangeTo) {
-                // validate that card type=DC
-                if (!binMapping.type.equals("DC")) {
-                    events.add(new Event(transaction.transactionId, Event.STATUS_DECLINED, "Card type " + binMapping.type + " is not supported"));
-                    processedTransactions.add(transaction);
-                    return;
-                }
-                // - Confirm that the country of the card or account used for the transaction matches the user's country
-                String binCountryCode = binMapping.country;
-                if (!binCountryCode.equals(countryCodes.get(user.country))) {
-                    events.add(new Event(transaction.transactionId, Event.STATUS_DECLINED, "Country of the card used for the transaction doesn't match the user's country, expected " + user.country));
-                    processedTransactions.add(transaction);
-                    return;
-                }
-            }
-        }
-        // - Users cannot share iban/card; payment account used by one user can no longer be used by another
-        validateAccountIsUsedByOneUser(events, approvedTransactions, processedTransactions, transaction, user);
-    }
-
+    /**
+     * The second validation method to validate the transaction amount and type.
+     * Checks if the amount is positive and between the user's min and max deposit/withdraw limits.
+     * Checks if the user has enough balance for a withdrawal.
+     * Checks if the account has been used for a deposit before a withdrawal.
+     */
     private static void amountAndTypeValidation(List<Event> events, List<Transaction> approvedTransactions, List<Transaction> processedTransactions, Transaction transaction, User user, List<BinMapping> binMappings, Map<String, String> countryCodes) {
         Locale.setDefault(Locale.US);
 
@@ -231,6 +204,11 @@ public class TransactionProcessorSample {
     }
 
 
+    /**
+     * Third validation method to validate that the account used for the transaction is used by only one user.
+     * If the transaction passes all the validations, the transaction is approved and added to the approvedTransactions list.
+     * The user's balance is updated accordingly.
+     */
     private static void validateAccountIsUsedByOneUser(List<Event> events, List<Transaction> approvedTransactions, List<Transaction> processedTransactions, Transaction transaction, User user) {
         String accountNumber = transaction.accountNumber;
         if (approvedTransactions.stream().anyMatch(approvedTransaction -> approvedTransaction.accountNumber.equals(accountNumber) && !approvedTransaction.userId.equals(transaction.userId))) {
@@ -249,7 +227,64 @@ public class TransactionProcessorSample {
         approvedTransactions.add(transaction);
     }
 
-    private static boolean isValid(String iban) {
+    /**
+     * Validation method for method type transfer.
+     * Uses the isIbanValid method to validate the IBAN number and validates the country of the account used for the transaction matches the user's country.
+     */
+    private static void transferValidation(List<Event> events, List<Transaction> processedTransactions, Transaction transaction, User user, List<Transaction> approvedTransactions) {
+        String iban = transaction.accountNumber;
+        if (iban.length() > 34) {
+            events.add(new Event(transaction.transactionId, Event.STATUS_DECLINED, "Invalid iban " + transaction.accountNumber));
+            processedTransactions.add(transaction);
+            return;
+        }
+        boolean isValid = isIbanValid(iban);
+        if (!isValid) {
+            events.add(new Event(transaction.transactionId, Event.STATUS_DECLINED, "Invalid iban " + transaction.accountNumber));
+            processedTransactions.add(transaction);
+            return;
+        }
+        // - Confirm that the country of the card or account used for the transaction matches the user's country
+        if (!user.country.equals(iban.substring(0, 2))) {
+            events.add(new Event(transaction.transactionId, Event.STATUS_DECLINED, "Country of the account used for the transaction doesn't match the user's country, expected " + user.country));
+            processedTransactions.add(transaction);
+            return;
+        }
+        // - Users cannot share iban/card; payment account used by one user can no longer be used by another
+        validateAccountIsUsedByOneUser(events, approvedTransactions, processedTransactions, transaction, user);
+    }
+
+    /**
+     * Validation method for method type card.
+     * Uses the binMappings to validate the card type.
+     * Checks if the country of the card or account used for the transaction matches the user's country using the countryCodes map.
+     */
+    private static void cardValidation(List<BinMapping> binMappings, Map<String, String> countryCodes, Transaction transaction, List<Event> events, List<Transaction> processedTransactions, User user, List<Transaction> approvedTransactions) {
+        String accountNumber = transaction.accountNumber;
+        long number = Long.parseLong(accountNumber.substring(0, 10));
+        for (BinMapping binMapping : binMappings) {
+            if (number >= binMapping.rangeFrom && number <= binMapping.rangeTo) {
+                // validate that card type=DC
+                if (!binMapping.type.equals("DC")) {
+                    events.add(new Event(transaction.transactionId, Event.STATUS_DECLINED, "Only DC cards allowed. Got " + binMapping.type + " card type."));
+                    processedTransactions.add(transaction);
+                    return;
+                }
+                // - Confirm that the country of the card or account used for the transaction matches the user's country
+                String binCountryCode = binMapping.country;
+                if (!binCountryCode.equals(countryCodes.get(user.country))) {
+                    events.add(new Event(transaction.transactionId, Event.STATUS_DECLINED, "Country of the card used for the transaction doesn't match the user's country, expected " + user.country));
+                    processedTransactions.add(transaction);
+                    return;
+                }
+            }
+        }
+        // - Users cannot share iban/card; payment account used by one user can no longer be used by another
+        validateAccountIsUsedByOneUser(events, approvedTransactions, processedTransactions, transaction, user);
+    }
+
+    //Validate the IBAN number. Uses algorithm from given Wikipedia page to validate the IBAN number.
+    private static boolean isIbanValid(String iban) {
         String rearrangedIban = iban.substring(4) + iban.substring(0, 4);
         StringBuilder expandedIban = new StringBuilder();
         for (char ch : rearrangedIban.toCharArray()) {
@@ -265,6 +300,7 @@ public class TransactionProcessorSample {
         return bigInteger.mod(BigInteger.valueOf(97)).intValue() == 1;
     }
 
+    // Writes the new balances of the users to a csv file
     private static void writeBalances(final Path filePath, final List<User> users) throws IOException {
         Locale.setDefault(Locale.US);
         try (final FileWriter writer = new FileWriter(filePath.toFile(), false)) {
@@ -276,6 +312,7 @@ public class TransactionProcessorSample {
         }
     }
 
+    // Writes the events to a csv file
     private static void writeEvents(final Path filePath, final List<Event> events) throws IOException {
         try (final FileWriter writer = new FileWriter(filePath.toFile(), false)) {
             writer.append("transaction_id,status,message\n");
@@ -310,76 +347,12 @@ class User {
         this.maxWithdraw = maxWithdraw;
     }
 
-    public String getUserId() {
-        return userId;
-    }
-
-    public void setUserId(String userId) {
-        this.userId = userId;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
     public double getBalance() {
         return balance;
     }
 
     public void setBalance(double balance) {
         this.balance = balance;
-    }
-
-    public String getCountry() {
-        return country;
-    }
-
-    public void setCountry(String country) {
-        this.country = country;
-    }
-
-    public boolean isFrozen() {
-        return frozen;
-    }
-
-    public void setFrozen(boolean frozen) {
-        this.frozen = frozen;
-    }
-
-    public double getMinDeposit() {
-        return minDeposit;
-    }
-
-    public void setMinDeposit(double minDeposit) {
-        this.minDeposit = minDeposit;
-    }
-
-    public double getMaxDeposit() {
-        return maxDeposit;
-    }
-
-    public void setMaxDeposit(double maxDeposit) {
-        this.maxDeposit = maxDeposit;
-    }
-
-    public double getMinWithdraw() {
-        return minWithdraw;
-    }
-
-    public void setMinWithdraw(double minWithdraw) {
-        this.minWithdraw = minWithdraw;
-    }
-
-    public double getMaxWithdraw() {
-        return maxWithdraw;
-    }
-
-    public void setMaxWithdraw(double maxWithdraw) {
-        this.maxWithdraw = maxWithdraw;
     }
 }
 
@@ -397,54 +370,6 @@ class Transaction {
         this.type = type;
         this.amount = amount;
         this.method = method;
-        this.accountNumber = accountNumber;
-    }
-
-    public String getTransactionId() {
-        return transactionId;
-    }
-
-    public void setTransactionId(String transactionId) {
-        this.transactionId = transactionId;
-    }
-
-    public String getUserId() {
-        return userId;
-    }
-
-    public void setUserId(String userId) {
-        this.userId = userId;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
-    }
-
-    public double getAmount() {
-        return amount;
-    }
-
-    public void setAmount(double amount) {
-        this.amount = amount;
-    }
-
-    public String getMethod() {
-        return method;
-    }
-
-    public void setMethod(String method) {
-        this.method = method;
-    }
-
-    public String getAccountNumber() {
-        return accountNumber;
-    }
-
-    public void setAccountNumber(String accountNumber) {
         this.accountNumber = accountNumber;
     }
 }
@@ -466,42 +391,6 @@ class BinMapping {
 
     public String getName() {
         return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public long getRangeFrom() {
-        return rangeFrom;
-    }
-
-    public void setRangeFrom(long rangeFrom) {
-        this.rangeFrom = rangeFrom;
-    }
-
-    public long getRangeTo() {
-        return rangeTo;
-    }
-
-    public void setRangeTo(long rangeTo) {
-        this.rangeTo = rangeTo;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
-    }
-
-    public String getCountry() {
-        return country;
-    }
-
-    public void setCountry(String country) {
-        this.country = country;
     }
 }
 

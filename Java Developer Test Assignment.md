@@ -22,7 +22,7 @@ The code is in the TransactionProcessorSample.java file. I used the sample code 
 - 'transferValidation' - validates the transfer account iban
   The logic in this method:
   * validates the transfer account iban
-  * uses method 'isValid' to validate the iban
+  * uses method 'isIbanValid' to validate the iban
   * confirms that the country of the account used for the transaction matches the user's country
   * calls method 'validateAccountIsUsedByOneUser' to validate the account
 - 'cardValidation' - validates the card number
@@ -36,7 +36,7 @@ The code is in the TransactionProcessorSample.java file. I used the sample code 
   * if we reach this point, the account is valid and can be used for the transaction
   * adds the transaction to the list of approved transactions
   * updates the user balance
-- 'isValid' - uses the iban validation algorithm from the wikipedia page to validate the iban, returns a boolean
+- 'isIbanValid' - uses the iban validation algorithm from the wikipedia page to validate the iban, returns a boolean
 - 'writeBalances' - writes the user balances to the csv file
 - 'writeEvents' - writes the events to the csv file
 
