@@ -6,7 +6,7 @@ The structure of this project is reading data from different csv files containin
 ## My implementation
 
 The code is in the TransactionProcessorSample.java file. I used the sample code and implemented the following methods:
-- 'readCountryCodes' - reads the aplha-2 and alpha-3 country codes from a file 'country_codes.txt' and stores them in a map for later validation
+- 'readCountryCodes' - reads the alpha-2 and alpha-3 country codes from a file 'country_codes.txt' and stores them in a map for later validation
 - 'readUsers' - reads users from the csv file and creates a User object for each user and stores them in a list
 - 'readTransactions' - reads transactions from the csv file and creates a Transaction object for each transaction and stores them in a list
 - 'readBinMappings' - reads bin mappings from the csv file and creates a BinMapping object for each bin mapping and stores them in a list
@@ -15,26 +15,25 @@ The code is in the TransactionProcessorSample.java file. I used the sample code 
   * validates the transaction id is unique
   * validates the user exists and is not frozen
   * calls the amountAndTypeValidation method to validate the amount and type of transaction
-- 'amountAndTypeValidation' - validates the amount and type of transaction, and in case of invalid amount or type, creates a decline event
+- 'amountAndTypeValidation' - validates the amount and type of transaction
   The logic in this method:
-  * validates the amount is a valid positive number and within deposit/withdraw limits
+  * validates the amount is a valid positive number and within deposit/withdraw limits for the user
   * for withdrawals, validates the user has a sufficient balance for a withdrawal
-  * allows withdrawals only with the same payment account that has previously been successfully used for deposit
-  * chooses a validation method based on the transaction method:
+  * allows withdrawals only with the same payment account that has previously been successfully used for deposit (this uses approvedTransactions list)
+  * chooses a validation method to call based on the transaction method:
     * 'transferValidation' for transfer method
     * 'cardValidation' for card method
 - 'transferValidation' - validates the transfer account iban
   The logic in this method:
-  * validates the transfer account iban
   * uses method 'isValid' to validate the iban
-  * confirms that the country of the account used for the transaction matches the user's country
+  * confirms that the country of the account used for the transaction matches the user's country (uses the aplha-2 code in iban account)
   * calls method 'validateAccountIsUsedByOneUser' to validate the account
 - 'cardValidation' - validates the card number
   The logic in this method:
-  * validates the card number using the bin mappings and the card type
-  * confirms that the country of the card used for the transaction matches the user's country
+  * validates the card number using the bin mappings and the card type is DC
+  * confirms that the country of the card used for the transaction matches the user's country (uses the country codes' map)
   * calls method 'validateAccountIsUsedByOneUser' to validate the account
-- 'validateAccountIsUsedByOneUser' - validates the user does not share iban/card, and in case of invalid account, creates a decline event
+- 'validateAccountIsUsedByOneUser' - validates the user does not share iban/card
   The logic in this method:
   * validates the payment account has not successfully been used by another user
   * if we reach this point, the account is valid and can be used for the transaction
@@ -50,4 +49,12 @@ The code is in the TransactionProcessorSample.java file. I used the sample code 
 - I thought it would be more optimal to check the amount before using algorithms to validate the iban or card number.
 - The users are written in the same order they were read from the file, which is different from the order in some example outputs, but I think it is more logical to keep the order consistent.
 - I am using a text file I created for the country codes, to make the country check more dynamic and factually correct.
-- The outputs for incorrect car type differ from the examples, because I wanted to include the status and message both in the output.
+- The outputs for incorrect card type may differ from the examples, because I wanted to include the status and message both in the output. Some examples were missing one or another.
+
+  ## Running the project
+
+  To run the project, you can use terminal and specify all paths of input and output files.
+
+  Example:
+  java TransactionProcessorSample.java <users-imput.csv> <transactions-input.csv> <bins-input.csv> <balances-output.csv> <events-output.csv>
+
