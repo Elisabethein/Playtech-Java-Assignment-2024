@@ -1,0 +1,22 @@
+transaction_id,status,message
+10101,APPROVED,OK
+10101,DECLINED,Transaction 10101 already processed (id non-unique)
+10102,DECLINED,User 10 not found in Users
+10103,DECLINED,User 3 is frozen
+10104,APPROVED,OK
+10105,DECLINED,Invalid iban GB90BARC20038077143675
+10100,DECLINED,Only DC cards allowed. Got CC card type.
+10108,DECLINED,Only DC cards allowed. Got FC card type.
+10106,APPROVED,OK
+10107,DECLINED,Country of the card used for the transaction doesn't match the user's country, expected US
+10109,DECLINED,Amount -100.00 is invalid
+10116,DECLINED,Amount -100.00 is invalid
+10111,APPROVED,OK
+10112,DECLINED,Cannot withdraw with a new account 223019000000000011
+10113,DECLINED,Type TEST is not supported
+10114,APPROVED,OK
+10115,DECLINED,Amount 5.00 is under the deposit limit of 10.00
+10117,DECLINED,Amount 600.00 is over the deposit limit of 500.00
+10118,DECLINED,Amount 10.00 is under the withdraw limit of 20.00
+10119,DECLINED,Amount 500.00 is over the withdraw limit of 400.00
+10121,DECLINED,Not enough balance for withdrawal 1100.00 - balance is too low at 1000.00

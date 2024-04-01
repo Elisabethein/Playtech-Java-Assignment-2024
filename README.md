@@ -51,6 +51,23 @@ The code is in the TransactionProcessorSample.java file. I used the sample code 
 - I am using a text file I created for the country codes, to make the country check more dynamic and factually correct.
 - The outputs for incorrect card type may differ from the examples, because I wanted to include the status and message both in the output. Some examples were missing one or another.
 
+## Added tests
+
+I created a test data folder myself named "my test data" which also has output files.
+The tests should cover all the requirements and edge cases. The test should contain some approved transactions, but mainly test the error messages, such as:
+- invalid transaction id
+- frozen user
+- invalid user id
+- invalid amount
+- invalid transaction type
+- invalid card type
+- invalid iban
+- invalid country code
+- insufficient balance
+- withdrawal with no previous deposit
+- account used by another user
+- shared iban/card
+
   ## Running the project
 
   To run the project, you can use terminal and specify all paths of input and output files.

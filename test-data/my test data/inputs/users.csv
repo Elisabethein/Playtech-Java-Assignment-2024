@@ -1,0 +1,5 @@
+user_id,username,balance,country,frozen,deposit_min,deposit_max,withdraw_min,withdraw_max
+1,user1,1000.00,US,0,10.00,500.00,20.00,400.00
+2,user2,2500.00,GB,0,50.00,1000.00,30.00,800.00
+3,user3,500.00,DE,1,20.00,300.00,10.00,200.00
+4,user4,1000.00,US,0,10.00,500.00,20.00,1100.00
